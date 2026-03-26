@@ -8,7 +8,7 @@ import os
 st.set_page_config(page_title="客户级别套餐分布分析", layout="wide")
 
 # 标题
-st.title("📊 迈瑞中国区免疫套餐VIP客户分布情况分析 (v1.2-修复数据加载)")
+st.title("📊 迈瑞中国区免疫套餐VIP客户分布情况分析")
 st.markdown("---")
 
 @st.cache_data
@@ -29,9 +29,9 @@ def load_data():
             # 1. 尝试 Tab 分隔符 (最有可能)
             df = pd.read_csv(file_path, sep='\t', encoding=encoding)
             if all(col in df.columns for col in required_cols):
-                # 清理医院编码
+                # 清理医院编码（处理 ="0060029527" 这种 Excel 格式）
                 df['医院编码'] = df['医院编码'].astype(str).str.replace('="', '').str.replace('"', '')
-                # 过滤客户级别
+                # 过滤客户级别，只关注 V1, V2, V3
                 df = df[df['客户级别'].isin(['V1', 'V2', 'V3'])]
                 # 核心去重
                 df_unique = df.drop_duplicates(subset=['套餐', '客户级别', '医院编码', '医院名称'])
@@ -84,51 +84,7 @@ if df is not None:
         (df['套餐'].isin(selected_packages))
     ]
     
-    # 1. 五大套餐核心概览图 (堆叠柱状图)
-    st.subheader("🚀 核心五大套餐分布概览 (V1/V2/V3 堆叠)")
-    
-    target_packages = ["传染病", "性激素", "甲功", "肿标", "心标"]
-    five_packages_df = df[df['套餐'].isin(target_packages)]
-    
-    if not five_packages_df.empty:
-        five_summary = five_packages_df.groupby(['套餐', '客户级别']).agg({'医院编码': 'count'}).reset_index()
-        five_summary.columns = ['套餐', '客户级别', '客户数量']
-        
-        # 计算总计用于排序
-        total_counts = five_summary.groupby('套餐')['客户数量'].sum().reset_index()
-        total_counts = total_counts.sort_values(by='客户数量', ascending=False)
-        sorted_five_packages = total_counts['套餐'].tolist()
-        
-        fig_five = px.bar(
-            five_summary,
-            x="套餐",
-            y="客户数量",
-            color="客户级别",
-            barmode="stack",
-            text="客户数量",
-            template="plotly_white",
-            height=500,
-            category_orders={
-                "套餐": sorted_five_packages,
-                "客户级别": ["V3", "V2", "V1"]
-            },
-            color_discrete_map={"V1": "#1f77b4", "V2": "#ff7f0e", "V3": "#2ca02c"}
-        )
-        fig_five.update_traces(texttemplate='%{text}', textposition='inside')
-        
-        # 添加顶部总数
-        for i, row in total_counts.iterrows():
-            fig_five.add_annotation(
-                x=row['套餐'], y=row['客户数量'], text=f"{int(row['客户数量'])}",
-                showarrow=False, yshift=10, font=dict(size=12, color="black", family="Arial Black")
-            )
-        st.plotly_chart(fig_five, use_container_width=True)
-    else:
-        st.warning("未在数据中找到五大核心套餐。")
-
-    st.markdown("---")
-
-    # 2. 原始详细分布图
+    # 1. 原始详细分布图
     col1, col2 = st.columns([1.2, 0.8])
     
     summary = filtered_df.groupby(['客户级别', '套餐']).agg({'医院编码': 'count'}).reset_index()
@@ -171,7 +127,7 @@ if df is not None:
 
     st.markdown("---")
     
-    # 3. 热力图和明细
+    # 2. 热力图
     st.subheader("🔍 套餐在各级别的覆盖率矩阵")
     pivot_df = summary.pivot(index='套餐', columns='客户级别', values='客户数量').fillna(0)
     fig_heatmap = px.imshow(
@@ -182,6 +138,8 @@ if df is not None:
     st.plotly_chart(fig_heatmap, use_container_width=True)
 
     st.markdown("---")
+    
+    # 3. 客户明细清单
     st.subheader("📋 客户明细清单")
     display_df = filtered_df[['医院编码', '医院名称', '客户级别', '套餐']].sort_values(['客户级别', '套餐'])
     search_query = st.text_input("🔍 搜索医院名称", "")
@@ -203,5 +161,50 @@ if df is not None:
         data=display_df.to_csv(index=False).encode('utf_8_sig'),
         file_name="客户清单_导出.csv", mime="text/csv"
     )
+
+    st.markdown("---")
+
+    # 4. 五大套餐核心概览图 (堆叠柱状图) - 移至最下方
+    st.subheader("🚀 核心五大套餐分布概览 (V1/V2/V3 堆叠)")
+    
+    target_packages = ["传染病", "性激素", "甲功", "肿标", "心标"]
+    five_packages_df = df[df['套餐'].isin(target_packages)]
+    
+    if not five_packages_df.empty:
+        five_summary = five_packages_df.groupby(['套餐', '客户级别']).agg({'医院编码': 'count'}).reset_index()
+        five_summary.columns = ['套餐', '客户级别', '客户数量']
+        
+        # 计算总计用于排序
+        total_counts = five_summary.groupby('套餐')['客户数量'].sum().reset_index()
+        total_counts = total_counts.sort_values(by='客户数量', ascending=False)
+        sorted_five_packages = total_counts['套餐'].tolist()
+        
+        fig_five = px.bar(
+            five_summary,
+            x="套餐",
+            y="客户数量",
+            color="客户级别",
+            barmode="stack",
+            text="客户数量",
+            template="plotly_white",
+            height=500,
+            category_orders={
+                "套餐": sorted_five_packages,
+                "客户级别": ["V3", "V2", "V1"]
+            },
+            color_discrete_map={"V1": "#1f77b4", "V2": "#ff7f0e", "V3": "#2ca02c"}
+        )
+        fig_five.update_traces(texttemplate='%{text}', textposition='inside')
+        
+        # 添加顶部总数
+        for i, row in total_counts.iterrows():
+            fig_five.add_annotation(
+                x=row['套餐'], y=row['客户数量'], text=f"{int(row['客户数量'])}",
+                showarrow=False, yshift=10, font=dict(size=12, color="black", family="Arial Black")
+            )
+        st.plotly_chart(fig_five, use_container_width=True)
+    else:
+        st.warning("未在数据中找到五大核心套餐。")
+
 else:
     st.info("等待数据正确加载...")
