@@ -66,6 +66,11 @@ if df is not None:
     level_totals = summary.groupby('客户级别')['客户数量'].transform('sum')
     summary['占比'] = (summary['客户数量'] / level_totals * 100).round(1)
     
+    # 计算每个套餐的总数，并按总数从高到低排序
+    total_summary = summary.groupby('套餐')['客户数量'].sum().reset_index()
+    total_summary = total_summary.sort_values(by='客户数量', ascending=False)
+    sorted_packages = total_summary['套餐'].tolist()
+
     # 创建堆叠柱状图 (Stacked Bar Chart)
     fig = px.bar(
         summary,
@@ -78,7 +83,7 @@ if df is not None:
         template="plotly_white",
         height=700, # 稍微增加高度以适应大字体
         category_orders={
-            "套餐": ["传染病", "性激素", "甲功", "肿标", "心标"],
+            "套餐": sorted_packages, # 按总数从高到低排序
             "客户级别": ["V3", "V2", "V1"] # 自下而上堆叠顺序
         },
         color_discrete_map={
@@ -96,8 +101,7 @@ if df is not None:
         width=0.4 # 调细柱子，默认是 0.8 左右，设置为 0.4 显著变细
     )
     
-    # 计算每个套餐的总数，并在柱子顶部显示总家数 (再次增加字体大小)
-    total_summary = summary.groupby('套餐')['客户数量'].sum().reset_index()
+    # 在柱子顶部显示总家数 (再次增加字体大小)
     for i, row in total_summary.iterrows():
         fig.add_annotation(
             x=row['套餐'],
