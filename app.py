@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="客户级别套餐分布分析", layout="wide")
 
 # 标题
-st.title("📊 迈瑞中国区免疫套餐VIP客户分布情况分析")
+st.title("📊 迈瑞中国区免疫套餐VIP客户分布情况分析 (v1.1-集成堆叠图)")
 st.markdown("---")
 
 @st.cache_data
