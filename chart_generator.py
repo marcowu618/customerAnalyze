@@ -76,7 +76,7 @@ if df is not None:
         text="客户数量", # 直接显示数量
         title="五大套餐在不同级别客户中的开展家数分布 (堆叠图)",
         template="plotly_white",
-        height=600,
+        height=700, # 稍微增加高度以适应大字体
         category_orders={
             "套餐": ["传染病", "性激素", "甲功", "肿标", "心标"],
             "客户级别": ["V3", "V2", "V1"] # 自下而上堆叠顺序
@@ -88,14 +88,15 @@ if df is not None:
         }
     )
     
-    # 优化图表样式：在柱子内部显示标签 (增加字体大小)
+    # 优化图表样式：在柱子内部显示标签 (再次增加字体大小，并调细柱子)
     fig.update_traces(
         texttemplate='%{text}',
         textposition='inside',
-        textfont=dict(size=16, color="white") # 增加柱内数字大小
+        textfont=dict(size=20, color="white"), # 柱内数字增大到 20
+        width=0.4 # 调细柱子，默认是 0.8 左右，设置为 0.4 显著变细
     )
     
-    # 计算每个套餐的总数，并在柱子顶部显示总家数 (增加字体大小)
+    # 计算每个套餐的总数，并在柱子顶部显示总家数 (再次增加字体大小)
     total_summary = summary.groupby('套餐')['客户数量'].sum().reset_index()
     for i, row in total_summary.iterrows():
         fig.add_annotation(
@@ -103,29 +104,30 @@ if df is not None:
             y=row['客户数量'],
             text=f"{int(row['客户数量'])}",
             showarrow=False,
-            yshift=15,
-            font=dict(size=18, color="black", family="Arial Black") # 增加顶部总数大小
+            yshift=20, # 增加向上偏移量，避免重叠
+            font=dict(size=22, color="black", family="Arial Black") # 顶部总数增大到 22
         )
     
     fig.update_layout(
         title=dict(
             text="五大套餐在不同级别客户中的开展家数分布 (堆叠图)",
-            font=dict(size=24) # 增加标题大小
+            font=dict(size=28) # 标题增大到 28
         ),
         xaxis=dict(
-            title=dict(text="套餐类型", font=dict(size=20)), # 增加X轴标题大小
-            tickfont=dict(size=16) # 增加X轴刻度文字大小
+            title=dict(text="套餐类型", font=dict(size=24)), # X轴标题增大到 24
+            tickfont=dict(size=20) # X轴刻度文字增大到 20
         ),
         yaxis=dict(
-            title=dict(text="开展家数 (医院数量)", font=dict(size=20)), # 增加Y轴标题大小
-            tickfont=dict(size=16) # 增加Y轴刻度文字大小
+            title=dict(text="开展家数 (医院数量)", font=dict(size=24)), # Y轴标题增大到 24
+            tickfont=dict(size=20) # Y轴刻度文字增大到 20
         ),
         legend=dict(
-            title=dict(text="客户级别", font=dict(size=18)), # 增加图例标题大小
-            font=dict(size=16) # 增加图例文字大小
+            title=dict(text="客户级别", font=dict(size=22)), # 图例标题增大到 22
+            font=dict(size=20) # 图例文字增大到 20
         ),
+        bargap=0.5, # 增加柱子之间的间距，使柱子看起来更细
         uniformtext_mode='hide',
-        uniformtext_minsize=12
+        uniformtext_minsize=14
     )
     
     # 在 Streamlit 中显示
