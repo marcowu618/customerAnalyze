@@ -2,52 +2,53 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import os
 
 # 设置页面配置
 st.set_page_config(page_title="客户级别套餐分布分析", layout="wide")
 
 # 标题
-st.title("📊 迈瑞中国区免疫套餐VIP客户分布情况分析 (v1.1-集成堆叠图)")
+st.title("📊 迈瑞中国区免疫套餐VIP客户分布情况分析 (v1.2-修复数据加载)")
 st.markdown("---")
 
 @st.cache_data
 def load_data():
     file_path = "设备项目月度产出统计_1.csv"
-    encodings = ['utf-8', 'utf-16', 'gbk', 'gb2312', 'utf-8-sig']
-    df = None
     
-    # 需要的关键字段
+    # 检查文件是否存在
+    if not os.path.exists(file_path):
+        st.error(f"❌ 找不到数据文件: {file_path}")
+        return None
+        
+    # 优先尝试 utf-16，因为这是 Excel 导出的常见 tab 分隔文件编码
+    encodings = ['utf-16', 'utf-8-sig', 'utf-8', 'gbk', 'gb2312']
     required_cols = ['套餐', '客户级别', '医院编码', '医院名称']
     
     for encoding in encodings:
         try:
-            # 尝试多种编码和分隔符读取
-            temp_df = pd.read_csv(file_path, sep='\t', encoding=encoding)
-            if all(col in temp_df.columns for col in required_cols):
-                df = temp_df
-                break
-            
-            temp_df = pd.read_csv(file_path, sep=',', encoding=encoding)
-            if all(col in temp_df.columns for col in required_cols):
-                df = temp_df
-                break
+            # 1. 尝试 Tab 分隔符 (最有可能)
+            df = pd.read_csv(file_path, sep='\t', encoding=encoding)
+            if all(col in df.columns for col in required_cols):
+                # 清理医院编码（处理 ="0060029527" 这种 Excel 格式）
+                df['医院编码'] = df['医院编码'].astype(str).str.replace('="', '').str.replace('"', '')
+                # 过滤客户级别，只关注 V1, V2, V3
+                df = df[df['客户级别'].isin(['V1', 'V2', 'V3'])]
+                # 核心去重
+                df_unique = df.drop_duplicates(subset=['套餐', '客户级别', '医院编码', '医院名称'])
+                return df_unique
+                
+            # 2. 尝试逗号分隔符
+            df = pd.read_csv(file_path, sep=',', encoding=encoding)
+            if all(col in df.columns for col in required_cols):
+                df['医院编码'] = df['医院编码'].astype(str).str.replace('="', '').str.replace('"', '')
+                df = df[df['客户级别'].isin(['V1', 'V2', 'V3'])]
+                df_unique = df.drop_duplicates(subset=['套餐', '客户级别', '医院编码', '医院名称'])
+                return df_unique
         except Exception:
             continue
-    
-    if df is None:
-        st.error(f"无法正确读取文件或缺少必要列 {required_cols}，请检查文件内容。")
-        return None
-    
-    # 过滤客户级别，只关注 V1, V2, V3
-    df = df[df['客户级别'].isin(['V1', 'V2', 'V3'])]
-    
-    # 清理医院编码（处理 ="0060029527" 这种 Excel 格式）
-    df['医院编码'] = df['医院编码'].astype(str).str.replace('="', '').str.replace('"', '')
-    
-    # 核心去重逻辑
-    df_unique = df.drop_duplicates(subset=['套餐', '客户级别', '医院编码', '医院名称'])
-    
-    return df_unique
+            
+    st.error(f"❌ 无法正确解析文件内容，请检查文件格式是否包含：{required_cols}")
+    return None
 
 df = load_data()
 
@@ -83,7 +84,7 @@ if df is not None:
         (df['套餐'].isin(selected_packages))
     ]
     
-    # 1. 新增：五大套餐核心概览图 (堆叠柱状图)
+    # 1. 五大套餐核心概览图 (堆叠柱状图)
     st.subheader("🚀 核心五大套餐分布概览 (V1/V2/V3 堆叠)")
     
     target_packages = ["传染病", "性激素", "甲功", "肿标", "心标"]
@@ -92,6 +93,11 @@ if df is not None:
     if not five_packages_df.empty:
         five_summary = five_packages_df.groupby(['套餐', '客户级别']).agg({'医院编码': 'count'}).reset_index()
         five_summary.columns = ['套餐', '客户级别', '客户数量']
+        
+        # 计算总计用于排序
+        total_counts = five_summary.groupby('套餐')['客户数量'].sum().reset_index()
+        total_counts = total_counts.sort_values(by='客户数量', ascending=False)
+        sorted_five_packages = total_counts['套餐'].tolist()
         
         fig_five = px.bar(
             five_summary,
@@ -103,7 +109,7 @@ if df is not None:
             template="plotly_white",
             height=500,
             category_orders={
-                "套餐": ["传染病", "性激素", "甲功", "肿标", "心标"],
+                "套餐": sorted_five_packages,
                 "客户级别": ["V3", "V2", "V1"]
             },
             color_discrete_map={"V1": "#1f77b4", "V2": "#ff7f0e", "V3": "#2ca02c"}
@@ -111,8 +117,7 @@ if df is not None:
         fig_five.update_traces(texttemplate='%{text}', textposition='inside')
         
         # 添加顶部总数
-        total_five = five_summary.groupby('套餐')['客户数量'].sum().reset_index()
-        for i, row in total_five.iterrows():
+        for i, row in total_counts.iterrows():
             fig_five.add_annotation(
                 x=row['套餐'], y=row['客户数量'], text=f"{int(row['客户数量'])}",
                 showarrow=False, yshift=10, font=dict(size=12, color="black", family="Arial Black")
