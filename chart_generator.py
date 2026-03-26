@@ -88,13 +88,14 @@ if df is not None:
         }
     )
     
-    # 优化图表样式：在柱子内部显示标签 (仅显示数字)
+    # 优化图表样式：在柱子内部显示标签 (增加字体大小)
     fig.update_traces(
         texttemplate='%{text}',
-        textposition='inside'
+        textposition='inside',
+        textfont=dict(size=16, color="white") # 增加柱内数字大小
     )
     
-    # 计算每个套餐的总数，并在柱子顶部显示总家数 (仅显示数字)
+    # 计算每个套餐的总数，并在柱子顶部显示总家数 (增加字体大小)
     total_summary = summary.groupby('套餐')['客户数量'].sum().reset_index()
     for i, row in total_summary.iterrows():
         fig.add_annotation(
@@ -102,16 +103,29 @@ if df is not None:
             y=row['客户数量'],
             text=f"{int(row['客户数量'])}",
             showarrow=False,
-            yshift=10,
-            font=dict(size=12, color="black", family="Arial Black")
+            yshift=15,
+            font=dict(size=18, color="black", family="Arial Black") # 增加顶部总数大小
         )
     
     fig.update_layout(
-        xaxis_title="套餐类型",
-        yaxis_title="开展家数 (医院数量)",
-        legend_title="客户级别",
+        title=dict(
+            text="五大套餐在不同级别客户中的开展家数分布 (堆叠图)",
+            font=dict(size=24) # 增加标题大小
+        ),
+        xaxis=dict(
+            title=dict(text="套餐类型", font=dict(size=20)), # 增加X轴标题大小
+            tickfont=dict(size=16) # 增加X轴刻度文字大小
+        ),
+        yaxis=dict(
+            title=dict(text="开展家数 (医院数量)", font=dict(size=20)), # 增加Y轴标题大小
+            tickfont=dict(size=16) # 增加Y轴刻度文字大小
+        ),
+        legend=dict(
+            title=dict(text="客户级别", font=dict(size=18)), # 增加图例标题大小
+            font=dict(size=16) # 增加图例文字大小
+        ),
         uniformtext_mode='hide',
-        uniformtext_minsize=8
+        uniformtext_minsize=12
     )
     
     # 在 Streamlit 中显示
